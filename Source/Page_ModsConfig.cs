@@ -79,13 +79,10 @@ namespace EdB.ModOrder
 			// that we can use to look up the active mods by name.
 			Dictionary<string, InstalledMod> dictionary = new Dictionary<string, InstalledMod>();
 			foreach (InstalledMod mod in InstalledModLister.AllInstalledMods) {
-				dictionary[mod.FolderName] = mod;
+				dictionary[mod.Identifier] = mod;
 			}
-			foreach (string name in ModsConfig.ActiveModNames) {
-				InstalledMod item;
-				if (dictionary.TryGetValue(name, out item)) {
-					this.activeMods.Add(item);
-				}
+			foreach (InstalledMod mod in ModsConfig.ActiveMods) {
+				this.activeMods.Add(mod);
 			}
 
 			// Create a copy of the mods that were active when we started.  When we
@@ -384,13 +381,15 @@ namespace EdB.ModOrder
 			float buttonHeight = this.CloseButSize.y;
 			float buttonY = this.winRect.height - 78;
 			Rect getModsButttonRect = new Rect(18, buttonY, 206, buttonHeight);
-			if (Widgets.TextButton(getModsButttonRect, "GetMods".Translate(), true, true)) {
+
+			// TODO: Include Steam Workshop changes when the Steam release happens.
+			if (Widgets.TextButton(getModsButttonRect, "GetModsFromForum".Translate(), true, true)) {
 				Application.OpenURL("http://rimworldgame.com/getmods");
 			}
 
 			Rect modFolderButtonRect = new Rect(240, buttonY, 206, buttonHeight);
 			if (Widgets.TextButton(modFolderButtonRect, "OpenModsDataFolder".Translate(), true, true)) {
-				Application.OpenURL(GenFilePaths.ModsFolderPath);
+				Application.OpenURL(GenFilePaths.CoreModsFolderPath);
 			}
 
 			Rect closeButtonRect = new Rect(this.winRect.width - this.CloseButSize.x - 54, buttonY, this.CloseButSize.x, buttonHeight);
@@ -505,7 +504,7 @@ namespace EdB.ModOrder
 			if (!selectedFromActive) {
 				return;
 			}
-			if (activeMods[selectedIndex].Name == Mod.CoreModFolderName) {
+			if (activeMods[selectedIndex].Name == LoadedMod.CoreModFolderName) {
 				Find.LayerStack.Add(new Dialog_Confirm("ConfirmDisableCoreMod".Translate(), delegate {
 					DeactivateSelectedMod();
 				}, false));
@@ -556,12 +555,12 @@ namespace EdB.ModOrder
 			// active but not at the top of the list, show a warning.
 			bool coreIsActive = false;
 			foreach (InstalledMod mod in activeMods) {
-				if (mod.Name == Mod.CoreModFolderName) {
+				if (mod.Name == LoadedMod.CoreModFolderName) {
 					coreIsActive = true;
 					break;
 				}
 			}
-			if (coreIsActive && activeMods[0].Name != Mod.CoreModFolderName) {
+			if (coreIsActive && activeMods[0].Name != LoadedMod.CoreModFolderName) {
 				Find.LayerStack.Add(new Dialog_Confirm("EdB.ModOrder.CoreModOrderWarning".Translate(), delegate {
 					this.Close(true);
 					Event.current.Use();
@@ -578,7 +577,7 @@ namespace EdB.ModOrder
 		{
 			// Iterate the available mods to find and select the Core mod.
 			for (int i = 0; i < availableMods.Count; i++) {
-				if (availableMods[i].Name == Mod.CoreModFolderName) {
+				if (availableMods[i].Name == LoadedMod.CoreModFolderName) {
 					selectedIndex = i;
 					selectedFromAvailable = true;
 					selectedFromActive = false;
