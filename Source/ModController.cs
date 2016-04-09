@@ -11,7 +11,7 @@ namespace EdB.ModOrder
 {
 	/*
 	 * The ModController class manages how modded user interface elements are injected into
-	 * the game.  User interface elements are generally stored in the Verse.LayerStack class.
+	 * the game.  User interface elements are generally stored in the Verse.WindowStack class.
 	 * The general approach that the mod takes is to keep an eye on the user-interface element
 	 * at the top of that stack.  When it sees the element that it wants to replace, it replaces it.
 	 * It derives from Unity Engine's MonoBehavior class (http://docs.unity3d.com/ScriptReference/MonoBehaviour.html)
@@ -29,7 +29,7 @@ namespace EdB.ModOrder
 		public static readonly string GameObjectName = "EdBModOrderController";
 
 		// We keep track of top-most layer in the UI so that we can detect when it changes.
-		protected Layer currentLayer = null;
+		protected Window currentWindow = null;
 
 		// We keep track of whether we're in the middle of gameplay or if we're in the
 		// game's main menus.
@@ -120,22 +120,21 @@ namespace EdB.ModOrder
 		{
 			// Keep track of the user interface element that's currently on the
 			// top of the layer stack.
-			bool layerChanged = false;
-			Layer layer = this.TopLayer;
-			if (layer != this.currentLayer) {
-				this.currentLayer = layer;
-				layerChanged = true;
+			bool windowChanged = false;
+			Window window = this.TopWindow;
+			if (window != this.currentWindow) {
+				this.currentWindow = window;
+				windowChanged = true;
 			}
 
 			// If the layer has changed, check the class name to see if it's the vanilla
 			// mods config screen.
-			if (layerChanged && layer != null) {
-				if ("RimWorld.Page_ModsConfig".Equals(layer.GetType().FullName)) {
+			if (windowChanged && window != null) {
+				if ("RimWorld.Page_ModsConfig".Equals(window.GetType().FullName)) {
 					// Check if the mod is enabled.
 					if (ModEnabled) {
 						ResetTextures();
-						Find.LayerStack.Layers.Remove(layer);
-						Find.LayerStack.Add(new Page_ModsConfig());
+						ReplaceWindow(window, new Page_ModsConfig());
 						Log.Message("Swapped in EdB Mod Order Page");
 					}
 				}
@@ -150,20 +149,20 @@ namespace EdB.ModOrder
 			}
 		}
 
-		// Instead of using LayerStack.TopLayer(), we define our own logic to get the
+		// Instead of using WindowStack.TopWindow(), we define our own logic to get the
 		// top layer.  We do this because we want to skip the console log if it's on
 		// top.  If we don't do this, all of our logic around swapping in new interface
 		// elements fails when the console is open.
-		public Layer TopLayer
+		public Window TopWindow
 		{
 			get {
 				// Iterate the layers.
-				foreach (Layer layer in Find.LayerStack.Layers) {
+				foreach (Window window in Find.WindowStack.Windows) {
 					// A string comparison of the class name here is a little more expensive than
 					// we'd like, but we do this instead of comparing the Type to avoid any potential
 					// problems with assembly versions.
-					if (layer.GetType().FullName != "Verse.EditWindow_Log") {
-						return layer;
+					if (window.GetType().FullName != "Verse.EditWindow_Log") {
+						return window;
 					}
 				}
 				return null;
@@ -220,5 +219,39 @@ namespace EdB.ModOrder
 			Page_ModsConfig.ResetTextures();
 		}
 
+		public void ReplaceWindow(Window currentWindow, Window replacement)
+		{
+			// EdB: We can't call WindowStack.TryRemove() here because that will run the PostClose() logic
+			// in the vanilla Page_ModsConfig page, which will reload all of the mod.  Instead we call our
+			// own method that mimics TryRemove() without calling the PostClose() method.
+			RemoveWindowWithoutClosingIt(currentWindow);
+			Find.WindowStack.Add(new Page_ModsConfig());
+		}
+
+		// Removes a window from the window stack without calling its Pre/PostClose() methods.  This allows
+		// us to replace a window without triggering any logic in the existing window.
+		public static void RemoveWindowWithoutClosingIt(Window window)
+		{
+			FieldInfo windowsField = typeof(WindowStack).GetField("windows", BindingFlags.Instance | BindingFlags.NonPublic);
+			FieldInfo focusedWindowField = typeof(WindowStack).GetField("focusedWindow", BindingFlags.Instance | BindingFlags.NonPublic);
+			FieldInfo updateInternalWindowsOrderLaterField = typeof(WindowStack).GetField("updateInternalWindowsOrderLater", BindingFlags.Instance | BindingFlags.NonPublic);
+			List<Window> windows = (List<Window>) windowsField.GetValue(Find.WindowStack);
+			if (!windows.Remove(window)) {
+				return;
+			}
+
+			// EdB: This is a copy of logic at the end of WindowStack.TryRemove(), using reflection where needed.
+			Window focusedWindow = (Window) focusedWindowField.GetValue(Find.WindowStack);
+			if (focusedWindow == window) {
+				if (windows.Count > 0) {
+					focusedWindowField.SetValue(Find.WindowStack, windows[windows.Count - 1]);
+				}
+				else {
+					focusedWindowField.SetValue(Find.WindowStack, null);
+				}
+				updateInternalWindowsOrderLaterField.SetValue(Find.WindowStack, true);
+			}
+		}
     }
+
 }

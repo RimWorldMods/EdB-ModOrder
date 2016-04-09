@@ -9,7 +9,7 @@ namespace EdB.ModOrder
 	// URL, etc.) that is normally displayed in the main Mods config screen in the vanilla
 	// game.  We don't have room for it in the modded version of the screen, so we put it
 	// in a dialog.
-	public class Dialog_ModInfo : Layer_Window
+	public class Dialog_ModInfo : Window
 	{
 		static protected Vector2 WinSize = new Vector2(640, 640);
 		static protected float Margin = 24;
@@ -17,23 +17,24 @@ namespace EdB.ModOrder
 
 		protected InstalledMod mod;
 
+		public override Vector2 InitialWindowSize {
+			get {
+				return WinSize;
+			}
+		}
+
 		// The constructor takes the mod for which it will display information as an argument.
 		public Dialog_ModInfo(InstalledMod mod) : base()
 		{
 			// Standard configuration from the base class.
-			base.SetCentered(WinSize.x, WinSize.y);
-			this.drawPriority = 2000;
-			this.closeOnEscapeKey = true;
 			this.doCloseButton = true;
-			this.doCloseX = true;
-			this.absorbAllInput = true;
 
 			// Store the mod.
 			this.mod = mod;
 		}
 
 		// Draw the dialog contents.
-		protected override void FillWindow(Rect inRect)
+		public override void DoWindowContents(Rect inRect)
 		{
 			float width = ContentSize.x;
 			float height = ContentSize.y;

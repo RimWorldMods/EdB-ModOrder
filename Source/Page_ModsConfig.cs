@@ -11,7 +11,7 @@ namespace EdB.ModOrder
 	/* This is a modified version of the RimWorld.Page_ModsConfig class that is swapped
 	 * in when that screen appears.
 	 */
-	public class Page_ModsConfig : Layer_Window
+	public class Page_ModsConfig : Window
 	{
 		// Textures are defined here and loaded in the ResetTextures() static initializer below.
 		protected static Texture2D ButtonTexReorderUp;
@@ -57,12 +57,15 @@ namespace EdB.ModOrder
 			ButtonTexReorderBottom = ContentFinder<Texture2D>.Get("EdB/ModOrder/ArrowBottom", true);
 		}
 
+		public override Vector2 InitialWindowSize {
+			get {
+				return Page_ModsConfig.WinSize;
+			}
+		}
+
 		public Page_ModsConfig()
 		{
 			// Set available options for the Layer base class.
-			base.SetCentered(Page_ModsConfig.WinSize);
-			this.drawPriority = 2000;
-			this.clearNonEditWindows = true;
 			this.forcePause = true;
 			this.doCloseButton = false;
 
@@ -134,10 +137,10 @@ namespace EdB.ModOrder
 		// Draw the contents of the window.  There's some duplication of code here when drawing the
 		// available mods box and the active mods box.  I probably could have consolidated some of this,
 		// but I ended up keeping them separate.
-		protected override void FillWindow(Rect inRect)
+		public override void DoWindowContents(Rect inRect)
 		{
 			// Figure out if this layer is the top layer.  If it isn't we'll disable some mouse-over effects later.
-			bool isTopLayer = Find.LayerStack.TopLayer == this;
+			bool isTopLayer = Find.WindowStack.Windows[Find.WindowStack.Windows.Count - 1] == this;
 
 			// Draw the page header.
 			Text.Anchor = TextAnchor.UpperLeft;
@@ -379,7 +382,7 @@ namespace EdB.ModOrder
 
 			// Draw the bottom buttom row.
 			float buttonHeight = this.CloseButSize.y;
-			float buttonY = this.winRect.height - 78;
+			float buttonY = inRect.height - 58;
 			Rect getModsButttonRect = new Rect(18, buttonY, 206, buttonHeight);
 
 			// TODO: Include Steam Workshop changes when the Steam release happens.
@@ -392,7 +395,7 @@ namespace EdB.ModOrder
 				Application.OpenURL(GenFilePaths.CoreModsFolderPath);
 			}
 
-			Rect closeButtonRect = new Rect(this.winRect.width - this.CloseButSize.x - 54, buttonY, this.CloseButSize.x, buttonHeight);
+			Rect closeButtonRect = new Rect(inRect.width - this.CloseButSize.x - 40, buttonY, this.CloseButSize.x, buttonHeight);
 			if (Widgets.TextButton(closeButtonRect, "CloseButton".Translate(), true, true)) {
 				ConfirmModOrder();
 			}
@@ -505,7 +508,7 @@ namespace EdB.ModOrder
 				return;
 			}
 			if (activeMods[selectedIndex].Name == LoadedMod.CoreModFolderName) {
-				Find.LayerStack.Add(new Dialog_Confirm("ConfirmDisableCoreMod".Translate(), delegate {
+				Find.WindowStack.Add(new Dialog_Confirm("ConfirmDisableCoreMod".Translate(), delegate {
 					DeactivateSelectedMod();
 				}, false));
 			}
@@ -543,7 +546,7 @@ namespace EdB.ModOrder
 			// Make sure that at least one mod is active.  If not, show a warning.  If the user
 			// proceeds anyway, activate the core mod before reloading the mods.
 			if (activeMods.Count == 0) {
-				Find.LayerStack.Add(new Dialog_Confirm("EdB.ModOrder.NoModWarning".Translate(), delegate {
+				Find.WindowStack.Add(new Dialog_Confirm("EdB.ModOrder.NoModWarning".Translate(), delegate {
 					ActivateCoreMod();
 					this.Close(true);
 					Event.current.Use();
@@ -561,7 +564,7 @@ namespace EdB.ModOrder
 				}
 			}
 			if (coreIsActive && activeMods[0].Name != LoadedMod.CoreModFolderName) {
-				Find.LayerStack.Add(new Dialog_Confirm("EdB.ModOrder.CoreModOrderWarning".Translate(), delegate {
+				Find.WindowStack.Add(new Dialog_Confirm("EdB.ModOrder.CoreModOrderWarning".Translate(), delegate {
 					this.Close(true);
 					Event.current.Use();
 				}, false));
@@ -604,13 +607,13 @@ namespace EdB.ModOrder
 			}
 
 			// Open the dialog
-			Find.LayerStack.Add(new Dialog_ModInfo(mod));
+			Find.WindowStack.Add(new Dialog_ModInfo(mod));
 		}
 
 		// Handle the reloading of mods when the Mods screen is closed.
-		public override void PostRemove()
+		public override void PostClose()
 		{
-			base.PostRemove();
+			base.PostClose();
 
 			// Only reloads mods if the user actually made changes to the mod configuration.
 			if (HasConfigurationChanged) {
@@ -626,12 +629,14 @@ namespace EdB.ModOrder
 
 				ModsConfig.Save();
 				PlayDataLoader.ClearAllPlayData();
+				PlayDataLoader.LoadAllPlayData(false);
 			}
 			else {
 				Log.Message("Mod selection did not change.  Skipping mod reload.");
 			}
 
-			Find.LayerStack.Add(new Page_MainMenu());
+			// TODO: Alpha 12
+			//Find.WindowStack.Add(new Page_MainMenu());
 		}
 
 		// Check to see if the mod configuration has changed.
