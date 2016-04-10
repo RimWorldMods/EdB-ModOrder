@@ -11,7 +11,7 @@ namespace EdB.ModOrder
 {
 	/*
 	 *  This initializer class gets loaded by the fake building definition in the 
-	 *  mod definition file Resources/Defs/ThingDefs/EdModOrder.xml.  It's defined
+	 *  mod definition file: Resources/Defs/ThingDefs/EdModOrder.xml.  It's defined
 	 *  as an ITab because RimWorld will create a single instance of each tab that's
 	 *  defined in the mod XML.  It will only do this once when a mod is loaded, so
 	 *  it makes it an ideal place to do initialization for your mod.

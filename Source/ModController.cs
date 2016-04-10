@@ -12,48 +12,52 @@ namespace EdB.ModOrder
 	/*
 	 * The ModController class manages how modded user interface elements are injected into
 	 * the game.  User interface elements are generally stored in the Verse.WindowStack class.
-	 * The general approach that the mod takes is to keep an eye on the user-interface element
-	 * at the top of that stack.  When it sees the element that it wants to replace, it replaces it.
+	 * The general approach that the mod takes is to keep track of the Window at the top of that stack.
+	 * When it sees the element that it wants to replace, it replaces it.
+	 * 
 	 * It derives from Unity Engine's MonoBehavior class (http://docs.unity3d.com/ScriptReference/MonoBehaviour.html)
-	 * so that it can take advantage of its built-in event handling.  By implementing the Start(),
-	 * OnLevelLoaded() and Update() methods, the mod can run custom logic immediately after all
-	 * mods have been loaded, when we switch between the main menus and gameplay and every frame,
-	 * respectively.
+	 * so that it can take advantage of its built-in event handling.  By implementing the Start() method,
+	 * the mod can run custom logic immediately after all mods have been loaded.  By implementing the
+	 * OnLevelLoaded() method, the mod can run custom logic when the game switches between the main menus
+	 * and gameplay.  By implementing the Update() method, the mod can run custom logic every frame.
 	 */
     class ModController : UnityEngine.MonoBehaviour
     {
 		// This matches the name of the mod defined in Resources/About/About.xml.
 		public static readonly string ModName = "EdB Mod Order";
 
-		// The name we're using to store this controller class as a GameObject in the Unity engine.
+		// The name we're using to store this controller class as a GameObject in Unity Engine's
+		// component dictionary.
 		public static readonly string GameObjectName = "EdBModOrderController";
 
 		// We keep track of top-most layer in the UI so that we can detect when it changes.
 		protected Window currentWindow = null;
 
-		// We keep track of whether we're in the middle of gameplay or if we're in the
-		// game's main menus.
+		// We keep track of whether we're in the middle of gameplay or we're in the game's main menus.
 		protected bool gameplay = false;
 
-		// The Start() method is called when the MonoBehavior first starts up.  This will
-		// happen immediately after all mods are loaded.
+		// The Start() method is called when the MonoBehavior is initialized.  This will happen immediately
+		// after all mods are loaded.
 		public virtual void Start()
 		{
-			// IMPORTANT: setting whether or not the MonoBehavior is enabled is very important.
+			// IMPORTANT: setting whether or not the MonoBehavior is enabled is important.
 			// If it's enabled, then the Update() method will get called every frame.  If it
 			// is not enabled, then the Update() method will not get called every frame.  To
 			// minimize impact on the game's performance, you should try to keep your MonoBehavior
 			// disabled, if possible.  This is especially true during gameplay.  It's less
-			// critical when in the game's menus where there's less performance stress, and
-			// this mod enables the behavior when in the menus.
+			// critical when in the game's menus where there is less performance stress.  This mod
+			// keeps the MonoBehavior enabled when in the menus, so that it can check the top
+			// window in the stack every frame.
 			this.Enabled = true;
 
-			// Reload any textures that the mod uses
-			ResetTextures();
+			// Reload any textures that the mod uses.  Since textures that may have already been loaded
+			// can be reset when going to the Mods menu, we make sure to reload them.
+			//ResetTextures();
 		}
 
 		// Define an accessor in case we want to insert any additional logic when enabling
-		// or disabling the controller.  The enabled property itself is in the base class.
+		// or disabling the controller.  The enabled field is in the base class, but there's
+		// no Enabled property in the base class.
 		protected bool Enabled {
 			get {
 				return this.enabled;
@@ -64,9 +68,9 @@ namespace EdB.ModOrder
 		}
 
 		// OnLevelLoaded is called whenever the game switches from the main menu (level 0)
-		// into gameplay (level 1).  This mod doesn't do anything during gameplay, so that
-		// is a good time to disable the mod.  On the other hand, it needs to be enabled
-		// when the main menus load.
+		// into gameplay (level 1).  Since this mod doesn't do anything during gameplay, we disable
+		// the MonoBehavior whenever gameplay starts.  We enable the MonoBehavior whenever the
+		// the main menu is loaded.
 		public void OnLevelWasLoaded(int level)
 		{
 			// Level 0 means we're in the game menus.
@@ -123,8 +127,20 @@ namespace EdB.ModOrder
 			bool windowChanged = false;
 			Window window = this.TopWindow;
 			if (window != this.currentWindow) {
+				/*
+				if (this.currentWindow == null && window != null) {
+					Log.Message("Window changed: null => " + window.GetType().FullName);
+				}
+				else if (this.currentWindow != null && window == null) {
+					Log.Message("Window changed: " + window.GetType().FullName + " => null");
+				}
+				else {
+					Log.Message("Window changed: " + window.GetType().FullName + " => " + window.GetType().FullName);
+				}
+				*/
 				this.currentWindow = window;
 				windowChanged = true;
+
 			}
 
 			// If the layer has changed, check the class name to see if it's the vanilla
@@ -149,20 +165,22 @@ namespace EdB.ModOrder
 			}
 		}
 
-		// Instead of using WindowStack.TopWindow(), we define our own logic to get the
-		// top layer.  We do this because we want to skip the console log if it's on
-		// top.  If we don't do this, all of our logic around swapping in new interface
-		// elements fails when the console is open.
+		// Find the top window in the stack that isn't the Console.  If we don't do this, all of our logic
+		// around swapping in a replacement window will fail when the console is up.
+		//
+		// NOTE: It's possible this isn't needed anymore with the new window system in Alpha 12, but
+		// I haven't looked into it.
 		public Window TopWindow
 		{
 			get {
-				// Iterate the layers.
-				foreach (Window window in Find.WindowStack.Windows) {
-					// A string comparison of the class name here is a little more expensive than
-					// we'd like, but we do this instead of comparing the Type to avoid any potential
-					// problems with assembly versions.
-					if (window.GetType().FullName != "Verse.EditWindow_Log") {
-						return window;
+				// The accessors reference properties that might be null with no null-checks, so we need to do some
+				// non-obvious null-checks ourselves here.
+				if (Find.UIRoot != null && Find.UIRoot.windows != null && Find.WindowStack != null && Find.WindowStack.Windows != null) {
+					// Iterate the layers.
+					foreach (Window window in Find.WindowStack.Windows.Reverse()) {
+						if (window != null && window.GetType().FullName != "Verse.EditWindow_Log") {
+							return window;
+						}
 					}
 				}
 				return null;
@@ -216,20 +234,25 @@ namespace EdB.ModOrder
 		// the mod or the big red X's you sometimes see in the gameplay interface buttons.
 		public void ResetTextures()
 		{
-			Page_ModsConfig.ResetTextures();
+			//Page_ModsConfig.ResetTextures();
 		}
 
+		// This replaces one window in the window stack with another.
 		public void ReplaceWindow(Window currentWindow, Window replacement)
 		{
-			// EdB: We can't call WindowStack.TryRemove() here because that will run the PostClose() logic
-			// in the vanilla Page_ModsConfig page, which will reload all of the mod.  Instead we call our
-			// own method that mimics TryRemove() without calling the PostClose() method.
+			// Ideally, you'd just remove the old window from the stack and add a new one, but you can't do
+			// that.  If you call WindowStack.TryRemove() to remove the target window, it will run the window's
+			// PostClose() logic, which may do a bunch of work that we don't want.  For example, in this mod,
+			// calling the Page_ModsConfig.PostClose() will reload all of the active mods.  We don't want to 
+			// do that.  Instead we call our own method that mimics TryRemove() without calling the PostClose()
+			// method.
 			RemoveWindowWithoutClosingIt(currentWindow);
-			Find.WindowStack.Add(new Page_ModsConfig());
+			Find.WindowStack.Add(replacement);
 		}
 
 		// Removes a window from the window stack without calling its Pre/PostClose() methods.  This allows
-		// us to replace a window without triggering any logic in the existing window.
+		// us to replace a window without triggering any logic in the existing window.  Uses reflection,
+		// because there's no better alternative.
 		public static void RemoveWindowWithoutClosingIt(Window window)
 		{
 			FieldInfo windowsField = typeof(WindowStack).GetField("windows", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -240,7 +263,7 @@ namespace EdB.ModOrder
 				return;
 			}
 
-			// EdB: This is a copy of logic at the end of WindowStack.TryRemove(), using reflection where needed.
+			// This is a copy of logic at the end of WindowStack.TryRemove(), using reflection where needed.
 			Window focusedWindow = (Window) focusedWindowField.GetValue(Find.WindowStack);
 			if (focusedWindow == window) {
 				if (windows.Count > 0) {
@@ -252,6 +275,5 @@ namespace EdB.ModOrder
 				updateInternalWindowsOrderLaterField.SetValue(Find.WindowStack, true);
 			}
 		}
-    }
-
+	}
 }

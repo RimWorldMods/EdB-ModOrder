@@ -65,6 +65,8 @@ namespace EdB.ModOrder
 
 		public Page_ModsConfig()
 		{
+			ResetTextures();
+
 			// Set available options for the Layer base class.
 			this.forcePause = true;
 			this.doCloseButton = false;
@@ -628,8 +630,10 @@ namespace EdB.ModOrder
 				}
 
 				ModsConfig.Save();
-				PlayDataLoader.ClearAllPlayData();
-				PlayDataLoader.LoadAllPlayData(false);
+				LongEventHandler.QueueLongEvent(delegate {
+					PlayDataLoader.ClearAllPlayData();
+					PlayDataLoader.LoadAllPlayData(false);
+				}, "LoadingLongEvent", true, null);
 			}
 			else {
 				Log.Message("Mod selection did not change.  Skipping mod reload.");
